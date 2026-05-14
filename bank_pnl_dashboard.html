@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bank P&L Analysis Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0F1117;
+    --surface: #181C27;
+    --surface2: #1E2333;
+    --surface3: #252B3B;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #E8E6E0;
+    --text2: #9B99A1;
+    --text3: #5C5B63;
+    --blue: #4F8EF7;
+    --blue-dim: rgba(79,142,247,0.15);
+    --green: #3ECF8E;
+    --green-dim: rgba(62,207,142,0.12);
+    --red: #F97373;
+    --red-dim: rgba(249,115,115,0.12);
+    --amber: #F5A623;
+    --amber-dim: rgba(245,166,35,0.12);
+    --gold: #C9A84C;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* TOP BAR */
+  .topbar { border-bottom: 1px solid var(--border); padding: 0 36px; display: flex; align-items: center; gap: 20px; height: 58px; position: sticky; top: 0; z-index: 10; background: var(--bg); }
+  .topbar-logo { font-family: 'Lora', serif; font-size: 17px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .topbar-logo span { color: var(--gold); }
+  .topbar-nav { display: flex; gap: 2px; }
+  .topbar-navitem { font-size: 12px; padding: 5px 14px; border-radius: 6px; color: var(--text2); cursor: pointer; transition: .15s; }
+  .topbar-navitem.active, .topbar-navitem:hover { background: var(--surface2); color: var(--text); }
+  .topbar-sep { flex: 1; }
+  .topbar-pill { font-size: 11px; padding: 3px 12px; border-radius: 20px; background: var(--green-dim); color: var(--green); font-weight: 500; }
+
+  /* LAYOUT */
+  .page { max-width: 1200px; margin: 0 auto; padding: 30px 36px 56px; }
+  .page-header { margin-bottom: 28px; display: flex; align-items: flex-end; justify-content: space-between; }
+  .page-title { font-family: 'Lora', serif; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 5px; }
+  .year-select { font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 7px 14px; border: 1px solid var(--border2); border-radius: var(--radius); background: var(--surface2); color: var(--text); cursor: pointer; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; position: relative; overflow: hidden; }
+  .kpi::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:99px; }
+  .kpi.k-blue::before { background: var(--blue); }
+  .kpi.k-green::before { background: var(--green); }
+  .kpi.k-amber::before { background: var(--amber); }
+  .kpi.k-gold::before { background: var(--gold); }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 10px; }
+  .kpi-value { font-family: 'IBM Plex Mono', monospace; font-size: 24px; font-weight: 500; color: var(--text); }
+  .kpi-delta { font-size: 12px; margin-top: 7px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+
+  /* MAIN GRID */
+  .main-grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; }
+  .card-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-bottom: 18px; font-weight: 500; }
+
+  /* INCOME STATEMENT */
+  .is-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .is-table tr td { padding: 7px 6px; border-bottom: 1px solid var(--border); }
+  .is-table tr:last-child td { border-bottom: none; }
+  .is-table .row-label { color: var(--text2); }
+  .is-table .row-val { text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .is-table .neg-val { color: var(--red); }
+  .is-table .section-head td { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); padding-top: 16px; padding-bottom: 4px; border-bottom: none; }
+  .is-table .subtotal td { font-weight: 500; color: var(--text); background: var(--surface2); border-radius: 4px; }
+  .is-table .total td { font-weight: 600; background: var(--blue-dim); color: var(--blue); border-radius: 4px; }
+
+  /* TABS */
+  .tab-bar { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .tab { font-size: 12px; font-weight: 500; padding: 8px 18px; border: none; background: transparent; color: var(--text2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; font-family: 'IBM Plex Sans', sans-serif; transition: .15s; }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+  .tab:hover { color: var(--text); }
+
+  /* LEGEND */
+  .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .chart-wrap { position: relative; }
+
+  /* EFFICIENCY BAR */
+  .eff-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; font-size: 12px; }
+  .eff-label { width: 130px; color: var(--text2); font-size: 11px; flex-shrink: 0; }
+  .eff-track { flex: 1; height: 7px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
+  .eff-fill { height: 100%; border-radius: 99px; transition: width .6s ease; }
+  .eff-val { width: 52px; text-align: right; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text2); }
+
+  /* FOOTER */
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .footer-left { font-size: 12px; color: var(--text3); }
+  .footer-right { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .main-grid { grid-template-columns: 1fr; }
+    .page { padding: 20px 16px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">Arche<span>Capital</span></div>
+  <div class="topbar-nav">
+    <div class="topbar-navitem active">P&amp;L Analysis</div>
+    <div class="topbar-navitem">Balance Sheet</div>
+    <div class="topbar-navitem">Capital Ratios</div>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-pill">FY 2024 Audited</div>
+</div>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Income Statement Analysis</h1>
+      <p class="page-sub">Consolidated · USD millions · Fiscal year ended 31 December</p>
+    </div>
+    <select class="year-select" id="yearSel" onchange="renderIS()">
+      <option value="2024">FY 2024</option>
+      <option value="2023">FY 2023</option>
+      <option value="2022">FY 2022</option>
+    </select>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi k-blue">
+      <div class="kpi-label">Net Interest Income</div>
+      <div class="kpi-value">$1,840M</div>
+      <div class="kpi-delta pos">▲ 11.3% YoY</div>
+    </div>
+    <div class="kpi k-green">
+      <div class="kpi-label">Net Banking Income</div>
+      <div class="kpi-value">$2,410M</div>
+      <div class="kpi-delta pos">▲ 8.7% YoY</div>
+    </div>
+    <div class="kpi k-amber">
+      <div class="kpi-label">Cost-to-Income Ratio</div>
+      <div class="kpi-value">54.8%</div>
+      <div class="kpi-delta pos">▼ 2.1pp YoY (improved)</div>
+    </div>
+    <div class="kpi k-gold">
+      <div class="kpi-label">Net Profit (after tax)</div>
+      <div class="kpi-value">$612M</div>
+      <div class="kpi-delta pos">▲ 18.4% YoY</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID: IS + Charts -->
+  <div class="main-grid">
+    <!-- INCOME STATEMENT -->
+    <div class="card">
+      <div class="card-title">Income statement</div>
+      <div id="isContent"></div>
+    </div>
+
+    <!-- CHARTS PANEL -->
+    <div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="tab-bar">
+          <button class="tab active" onclick="setTab('trend',this)">3-year trend</button>
+          <button class="tab" onclick="setTab('mix',this)">Revenue mix</button>
+          <button class="tab" onclick="setTab('waterfall',this)">P&amp;L waterfall</button>
+        </div>
+
+        <!-- TREND -->
+        <div id="view-trend">
+          <div class="legend-row">
+            <span class="legend-item"><span class="legend-dot" style="background:#4F8EF7;"></span>Net banking income</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#F97373;"></span>Operating expenses</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#3ECF8E;"></span>Net profit</span>
+          </div>
+          <div class="chart-wrap" style="height:220px;">
+            <canvas id="trendChart" role="img" aria-label="3-year trend of NBI, opex, and net profit from 2022 to 2024">3-year P&L trend.</canvas>
+          </div>
+        </div>
+
+        <!-- MIX -->
+        <div id="view-mix" style="display:none;">
+          <div class="legend-row">
+            <span class="legend-item"><span class="legend-dot" style="background:#4F8EF7;"></span>Net interest income</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#3ECF8E;"></span>Fees & commissions</span>
+            <span class="legend-item"><span class="legend-dot" style="background:#F5A623;"></span>Trading & other</span>
+          </div>
+          <div class="chart-wrap" style="height:220px;">
+            <canvas id="mixChart" role="img" aria-label="Revenue mix stacked bar 2022 to 2024">Revenue mix 2022-2024.</canvas>
+          </div>
+        </div>
+
+        <!-- WATERFALL -->
+        <div id="view-waterfall" style="display:none;">
+          <div class="chart-wrap" style="height:260px;">
+            <canvas id="wfChart" role="img" aria-label="Waterfall chart from net banking income to net profit 2024">P&L waterfall 2024.</canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- EFFICIENCY METRICS -->
+      <div class="card">
+        <div class="card-title">Efficiency metrics — FY 2024</div>
+        <div class="eff-row">
+          <div class="eff-label">Cost-to-income</div>
+          <div class="eff-track"><div class="eff-fill" style="width:54.8%;background:#4F8EF7;"></div></div>
+          <div class="eff-val">54.8%</div>
+        </div>
+        <div class="eff-row">
+          <div class="eff-label">Provision / NBI</div>
+          <div class="eff-track"><div class="eff-fill" style="width:12.9%;background:#F97373;"></div></div>
+          <div class="eff-val">12.9%</div>
+        </div>
+        <div class="eff-row">
+          <div class="eff-label">Tax rate (effective)</div>
+          <div class="eff-track"><div class="eff-fill" style="width:30%;background:#F5A623;"></div></div>
+          <div class="eff-val">30.5%</div>
+        </div>
+        <div class="eff-row">
+          <div class="eff-label">Net profit margin</div>
+          <div class="eff-track"><div class="eff-fill" style="width:25.4%;background:#3ECF8E;"></div></div>
+          <div class="eff-val">25.4%</div>
+        </div>
+        <div class="eff-row">
+          <div class="eff-label">NII share of NBI</div>
+          <div class="eff-track"><div class="eff-fill" style="width:76.3%;background:#C9A84C;"></div></div>
+          <div class="eff-val">76.3%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">ArcheCapital · Financial Analytics · Confidential</div>
+    <div class="footer-right">Generated: 31-Dec-2024</div>
+  </div>
+</div>
+
+<script>
+const isData = {
+  2024: [
+    { label:'Interest income', val:2310, section:'Revenue' },
+    { label:'Interest expense', val:-470, section:'' },
+    { label:'Net interest income', val:1840, subtotal:true },
+    { label:'Fee & commission income', val:490, section:'Non-interest income' },
+    { label:'Trading income', val:80, section:'' },
+    { label:'Total net banking income', val:2410, subtotal:true },
+    { label:'Personnel expenses', val:-720, section:'Operating expenses' },
+    { label:'Administrative & IT', val:-380, section:'' },
+    { label:'Depreciation & amortisation', val:-120, section:'' },
+    { label:'Operating expenses total', val:-1220, subtotal:true },
+    { label:'Gross operating income', val:1190, subtotal:true },
+    { label:'Cost of risk (provisions)', val:-310, section:'' },
+    { label:'Pre-tax profit', val:880, subtotal:true },
+    { label:'Income tax (30%)', val:-268, section:'' },
+    { label:'Net profit', val:612, total:true },
+  ],
+  2023: [
+    { label:'Interest income', val:2060, section:'Revenue' },
+    { label:'Interest expense', val:-408, section:'' },
+    { label:'Net interest income', val:1652, subtotal:true },
+    { label:'Fee & commission income', val:445, section:'Non-interest income' },
+    { label:'Trading income', val:121, section:'' },
+    { label:'Total net banking income', val:2218, subtotal:true },
+    { label:'Personnel expenses', val:-680, section:'Operating expenses' },
+    { label:'Administrative & IT', val:-360, section:'' },
+    { label:'Depreciation & amortisation', val:-110, section:'' },
+    { label:'Operating expenses total', val:-1150, subtotal:true },
+    { label:'Gross operating income', val:1068, subtotal:true },
+    { label:'Cost of risk (provisions)', val:-270, section:'' },
+    { label:'Pre-tax profit', val:798, subtotal:true },
+    { label:'Income tax (30%)', val:-281, section:'' },
+    { label:'Net profit', val:517, total:true },
+  ],
+  2022: [
+    { label:'Interest income', val:1780, section:'Revenue' },
+    { label:'Interest expense', val:-320, section:'' },
+    { label:'Net interest income', val:1460, subtotal:true },
+    { label:'Fee & commission income', val:390, section:'Non-interest income' },
+    { label:'Trading income', val:68, section:'' },
+    { label:'Total net banking income', val:1918, subtotal:true },
+    { label:'Personnel expenses', val:-620, section:'Operating expenses' },
+    { label:'Administrative & IT', val:-310, section:'' },
+    { label:'Depreciation & amortisation', val:-100, section:'' },
+    { label:'Operating expenses total', val:-1030, subtotal:true },
+    { label:'Gross operating income', val:888, subtotal:true },
+    { label:'Cost of risk (provisions)', val:-230, section:'' },
+    { label:'Pre-tax profit', val:658, subtotal:true },
+    { label:'Income tax (30%)', val:-221, section:'' },
+    { label:'Net profit', val:437, total:true },
+  ]
+};
+
+function fmt(v){ const abs=Math.abs(v); return v<0?'('+abs+')':''+abs; }
+
+function renderIS(){
+  const yr=document.getElementById('yearSel').value;
+  const rows=isData[yr];
+  let prevSection='';
+  let html='<table class="is-table">';
+  rows.forEach(r=>{
+    let cls='';
+    if(r.total) cls='total';
+    else if(r.subtotal) cls='subtotal';
+    let sectionHdr='';
+    if(r.section && r.section!==prevSection){ sectionHdr=`<tr class="section-head"><td colspan="2">${r.section}</td></tr>`; prevSection=r.section; }
+    const negCls=r.val<0?' neg-val':'';
+    html+=sectionHdr+`<tr class="${cls}"><td class="row-label">${r.label}</td><td class="row-val${negCls}">$${fmt(r.val)}M</td></tr>`;
+  });
+  html+='</table>';
+  document.getElementById('isContent').innerHTML=html;
+}
+renderIS();
+
+let trendC, mixC, wfC;
+
+trendC = new Chart(document.getElementById('trendChart'),{
+  type:'line',
+  data:{
+    labels:['2022','2023','2024'],
+    datasets:[
+      { label:'Net banking income', data:[1918,2218,2410], borderColor:'#4F8EF7', backgroundColor:'rgba(79,142,247,0.07)', tension:0.3, fill:true, pointRadius:5 },
+      { label:'Operating expenses', data:[1030,1150,1220], borderColor:'#F97373', backgroundColor:'rgba(249,115,115,0.05)', tension:0.3, fill:true, borderDash:[5,3], pointRadius:5 },
+      { label:'Net profit', data:[437,517,612], borderColor:'#3ECF8E', backgroundColor:'rgba(62,207,142,0.07)', tension:0.3, fill:true, pointRadius:5 }
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{font:{size:11,family:'IBM Plex Mono'},color:'#5C5B63'} },
+      y:{ grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>'$'+v+'M',font:{size:11,family:'IBM Plex Mono'},color:'#5C5B63'} }
+    }
+  }
+});
+
+mixC = new Chart(document.getElementById('mixChart'),{
+  type:'bar',
+  data:{
+    labels:['2022','2023','2024'],
+    datasets:[
+      { label:'Net interest income', data:[1460,1652,1840], backgroundColor:'#4F8EF7' },
+      { label:'Fees & commissions', data:[390,445,490], backgroundColor:'#3ECF8E' },
+      { label:'Trading & other', data:[68,121,80], backgroundColor:'#F5A623' }
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ stacked:true, grid:{display:false}, ticks:{font:{size:11,family:'IBM Plex Mono'},color:'#5C5B63'} },
+      y:{ stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>'$'+v+'M',font:{size:11,family:'IBM Plex Mono'},color:'#5C5B63'} }
+    }
+  }
+});
+
+function setTab(tab, btn){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  ['trend','mix','waterfall'].forEach(v=>document.getElementById('view-'+v).style.display='none');
+  document.getElementById('view-'+tab).style.display='block';
+  if(tab==='waterfall' && !wfC){
+    const bases=[0,2410,1190,880,0];
+    const vals=[2410,-1220,-310,-268,612];
+    const colors=['#4F8EF7','#F97373','#F97373','#F97373','#3ECF8E'];
+    wfC = new Chart(document.getElementById('wfChart'),{
+      type:'bar',
+      data:{
+        labels:['Net banking\nincome','Operating\nexpenses','Cost of\nrisk','Tax','Net\nprofit'],
+        datasets:[
+          { label:'base', data:bases, backgroundColor:'rgba(0,0,0,0)', borderColor:'rgba(0,0,0,0)' },
+          { label:'value', data:vals.map(Math.abs), backgroundColor:colors }
+        ]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>{ if(ctx.datasetIndex===0)return ''; return '$'+ctx.parsed.y+'M'; }}} },
+        scales:{
+          x:{ stacked:true, grid:{display:false}, ticks:{font:{size:10,family:'IBM Plex Sans'},color:'#5C5B63', autoSkip:false, maxRotation:0} },
+          y:{ stacked:true, grid:{color:'rgba(255,255,255,0.04)'}, ticks:{callback:v=>'$'+v+'M',font:{size:11,family:'IBM Plex Mono'},color:'#5C5B63'} }
+        }
+      }
+    });
+  }
+}
+</script>
+</body>
+</html>

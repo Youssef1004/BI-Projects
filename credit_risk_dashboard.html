@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Credit Risk Portfolio Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --surface2: #F0EEE9;
+    --border: rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text: #1A1917;
+    --text2: #6B6963;
+    --text3: #9E9A93;
+    --blue: #2563EB;
+    --blue-light: #EFF4FF;
+    --green: #16A34A;
+    --green-light: #F0FDF4;
+    --red: #DC2626;
+    --red-light: #FEF2F2;
+    --amber: #D97706;
+    --amber-light: #FFFBEB;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* TOP BAR */
+  .topbar { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; align-items: center; gap: 24px; height: 56px; position: sticky; top: 0; z-index: 10; }
+  .topbar-logo { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+  .topbar-logo span { color: var(--blue); }
+  .topbar-sep { flex: 1; }
+  .topbar-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: var(--blue-light); color: var(--blue); font-weight: 500; }
+  .topbar-date { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+  /* LAYOUT */
+  .page { max-width: 1200px; margin: 0 auto; padding: 28px 32px 48px; }
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 22px; font-weight: 600; letter-spacing: -0.03em; color: var(--text); }
+  .page-sub { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  /* KPI GRID */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+  .kpi-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; color: var(--text); }
+  .kpi-delta { font-size: 12px; margin-top: 6px; display: flex; align-items: center; gap: 4px; }
+  .kpi-delta.up { color: var(--red); }
+  .kpi-delta.down { color: var(--green); }
+  .kpi-delta.neutral { color: var(--text2); }
+
+  /* FILTERS */
+  .filter-row { display: flex; gap: 6px; margin-bottom: 20px; }
+  .filter-btn { font-size: 12px; font-weight: 500; padding: 6px 16px; border: 1px solid var(--border2); border-radius: 20px; background: transparent; color: var(--text2); cursor: pointer; transition: all .15s; font-family: 'DM Sans', sans-serif; }
+  .filter-btn:hover { background: var(--surface2); }
+  .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+
+  /* SECTION LABEL */
+  .section-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 12px; font-weight: 500; }
+
+  /* CHARTS ROW */
+  .charts-row { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+  .card-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 14px; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .chart-wrap { position: relative; }
+
+  /* TABLE CARD */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 9px 12px; font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); border-bottom: 1px solid var(--border); }
+  td { padding: 12px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+  .mono { font-family: 'DM Mono', monospace; font-size: 12px; }
+
+  /* BADGES */
+  .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+  .badge-red { background: var(--red-light); color: var(--red); }
+  .badge-amber { background: var(--amber-light); color: var(--amber); }
+  .badge-green { background: var(--green-light); color: var(--green); }
+  .badge-blue { background: var(--blue-light); color: var(--blue); }
+
+  /* RISK METER ROW */
+  .risk-bar-row { display: flex; align-items: center; gap: 10px; font-size: 12px; margin-bottom: 6px; }
+  .risk-bar-label { width: 80px; color: var(--text2); text-align: right; flex-shrink: 0; }
+  .risk-bar-track { flex: 1; height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+  .risk-bar-fill { height: 100%; border-radius: 99px; }
+  .risk-bar-val { width: 48px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text3); }
+
+  /* FOOTER */
+  .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .footer-left { font-size: 12px; color: var(--text3); }
+  .footer-right { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .page { padding: 20px 16px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">Risk<span>Lens</span></div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-badge">Q4 2024</div>
+  <div class="topbar-date">Retail & Corporate Lending</div>
+</div>
+
+<div class="page">
+  <div class="page-header">
+    <h1 class="page-title">Credit Risk Portfolio Dashboard</h1>
+    <p class="page-sub">Consolidated view · USD millions · As of 31 December 2024</p>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Total Loan Book</div>
+      <div class="kpi-value">$4,280M</div>
+      <div class="kpi-delta up">▲ 6.2% vs Q3 2024</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">NPL Ratio</div>
+      <div class="kpi-value">3.4%</div>
+      <div class="kpi-delta up">▲ 0.3pp vs Q3 2024</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Provision Coverage</div>
+      <div class="kpi-value">78.2%</div>
+      <div class="kpi-delta down">▼ 1.1pp vs Q3 2024</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Cost of Risk</div>
+      <div class="kpi-value">1.12%</div>
+      <div class="kpi-delta up">▲ 0.08pp vs Q3 2024</div>
+    </div>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filter-row">
+    <button class="filter-btn active" onclick="setFilter('all',this)">All segments</button>
+    <button class="filter-btn" onclick="setFilter('retail',this)">Retail</button>
+    <button class="filter-btn" onclick="setFilter('sme',this)">SME</button>
+    <button class="filter-btn" onclick="setFilter('corporate',this)">Corporate</button>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="card">
+      <div class="card-title">NPL Ratio — monthly evolution 2024</div>
+      <div class="legend-row">
+        <span class="legend-item"><span class="legend-dot" style="background:#2563EB;"></span>NPL ratio %</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#DC2626; opacity:.5;"></span>Alert threshold (4%)</span>
+      </div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="lineChart" role="img" aria-label="Monthly NPL ratio from Jan to Dec 2024, rising from 2.8% to 3.4%">NPL ratio monthly trend 2024.</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Portfolio by segment</div>
+      <div class="legend-row">
+        <span class="legend-item"><span class="legend-dot" style="background:#2563EB;"></span>Retail 42%</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#16A34A;"></span>Corporate 35%</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#D97706;"></span>SME 23%</span>
+      </div>
+      <div class="chart-wrap" style="height:220px;">
+        <canvas id="donutChart" role="img" aria-label="Portfolio breakdown: Retail 42%, Corporate 35%, SME 23%">Portfolio segments.</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- BAR CHART -->
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-title">Exposure by internal risk rating ($M)</div>
+    <div class="legend-row">
+      <span class="legend-item"><span class="legend-dot" style="background:#2563EB;"></span>Performing</span>
+      <span class="legend-item"><span class="legend-dot" style="background:#DC2626;"></span>Non-performing</span>
+    </div>
+    <div class="chart-wrap" style="height:180px;">
+      <canvas id="barChart" role="img" aria-label="Stacked bar chart of loan exposure from AAA to CCC rating buckets">Rating distribution.</canvas>
+    </div>
+  </div>
+
+  <!-- WATCHLIST TABLE -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="card-title" style="margin:0;">Watch-list credits — top 5</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Segment</th>
+          <th>Exposure ($M)</th>
+          <th>Internal rating</th>
+          <th>Days past due</th>
+          <th>Classification</th>
+        </tr>
+      </thead>
+      <tbody id="watchTable"></tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <div class="footer-left">Portfolio Analytics · Credit Risk Management</div>
+    <div class="footer-right">Data as of 31-Dec-2024</div>
+  </div>
+</div>
+
+<script>
+const watchData = [
+  { client:'Meridian Holdings', seg:'Corporate', exp:142, rating:'BB-', dpd:45, status:'Watch', statusClass:'badge-amber', filter:'corporate' },
+  { client:'Castor SME Fund', seg:'SME', exp:38, rating:'B+', dpd:62, status:'Substandard', statusClass:'badge-amber', filter:'sme' },
+  { client:'Aria Retail Trust', seg:'Retail', exp:27, rating:'B', dpd:90, status:'Doubtful', statusClass:'badge-red', filter:'retail' },
+  { client:'Pinnacle Logistics', seg:'Corporate', exp:95, rating:'BB', dpd:30, status:'Watch', statusClass:'badge-amber', filter:'corporate' },
+  { client:'Sunbelt Mortgage Pool', seg:'Retail', exp:61, rating:'BBB-', dpd:15, status:'Performing', statusClass:'badge-green', filter:'retail' },
+];
+
+function renderTable(filter){
+  const rows = filter==='all' ? watchData : watchData.filter(d=>d.filter===filter);
+  document.getElementById('watchTable').innerHTML = rows.length===0
+    ? `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px;">No records for this segment</td></tr>`
+    : rows.map(d=>`<tr>
+        <td style="font-weight:500;">${d.client}</td>
+        <td style="color:var(--text2);">${d.seg}</td>
+        <td class="mono">$${d.exp}M</td>
+        <td class="mono">${d.rating}</td>
+        <td class="mono">${d.dpd}d</td>
+        <td><span class="badge ${d.statusClass}">${d.status}</span></td>
+      </tr>`).join('');
+}
+
+function setFilter(f,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTable(f);
+}
+
+renderTable('all');
+
+new Chart(document.getElementById('lineChart'),{
+  type:'line',
+  data:{
+    labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    datasets:[
+      { label:'NPL ratio %', data:[2.8,2.9,2.7,2.8,3.0,3.1,3.0,3.1,3.2,3.1,3.3,3.4], borderColor:'#2563EB', backgroundColor:'rgba(37,99,235,0.07)', tension:0.4, pointRadius:4, pointBackgroundColor:'#2563EB', fill:true },
+      { label:'Alert threshold', data:Array(12).fill(4), borderColor:'#DC2626', borderDash:[6,4], borderWidth:1.5, pointRadius:0, fill:false }
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:11,family:'DM Sans'}} },
+      y:{ grid:{color:'rgba(0,0,0,0.04)'}, ticks:{callback:v=>v+'%',font:{size:11,family:'DM Sans'}}, min:2, max:5 }
+    }
+  }
+});
+
+new Chart(document.getElementById('donutChart'),{
+  type:'doughnut',
+  data:{
+    labels:['Retail','Corporate','SME'],
+    datasets:[{ data:[42,35,23], backgroundColor:['#2563EB','#16A34A','#D97706'], borderWidth:0, hoverOffset:8 }]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false, cutout:'68%',
+    plugins:{ legend:{display:false} }
+  }
+});
+
+new Chart(document.getElementById('barChart'),{
+  type:'bar',
+  data:{
+    labels:['AAA','AA','A','BBB','BB','B','CCC'],
+    datasets:[
+      { label:'Performing ($M)', data:[580,720,850,640,310,190,45], backgroundColor:'#2563EB' },
+      { label:'Non-performing ($M)', data:[0,0,5,18,42,65,29], backgroundColor:'#DC2626' }
+    ]
+  },
+  options:{
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ stacked:true, grid:{display:false}, ticks:{font:{size:11,family:'DM Sans'}} },
+      y:{ stacked:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{callback:v=>'$'+v+'M',font:{size:11,family:'DM Sans'}} }
+    }
+  }
+});
+</script>
+</body>
+</html>
